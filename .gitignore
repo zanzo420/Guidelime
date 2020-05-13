@@ -1,8 +1,20 @@
 
-release.lua
-.luacheckrc
-MapCoords
-QuestieDev-master
-\!BugGrabber
-BugSack
-VendorPrice
+/release.lua
+/.luacheckrc
+/MapCoords
+/Questie*
+/\!BugGrabber
+/BugSack
+/VendorPrice
+/Guidelime_*
+/TipTac*
+/XpCounter
+/Leatrix_Plus
+/LightHeaded*
+/Mapster
+/TradeSkillMaster*
+/ClassicCastbars*
+/Spy
+/MinimapButtonFrame*
+/ClassicCodex
+/WideQuestLog*

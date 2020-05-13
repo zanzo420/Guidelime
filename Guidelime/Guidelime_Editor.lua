@@ -34,7 +34,7 @@ local function setQuestInfo(id)
 				else
 					text = text .. "|T" .. addon.icons[key] .. ":12|t"
 				end
-				text = text .. addon.COLOR_WHITE .. objective.names[1]
+				text = text .. addon.COLOR_WHITE .. (objective.names[1] or "?")
 				if #objective.names > 1 then
 					text = text .. "("
 					for i = 2, #objective.names do
@@ -46,7 +46,11 @@ local function setQuestInfo(id)
 				if positions ~= nil and #positions > 0 then
 					text = text .. "|r " .. L.AT .. addon.COLOR_WHITE .. "\n"
 					for i, pos in ipairs(positions) do
-						pos.t = "GOTO"
+						pos.t = "LOC"
+						pos.markerTyp = objective.type
+						pos.questId = id
+						pos.questType = key
+						pos.objective = index
 						addon.addMapIcon(pos, false, true)
 						if i <= 10 then
 							text = text .. addon.getMapMarkerText(pos) ..
@@ -61,10 +65,14 @@ local function setQuestInfo(id)
 			end
 			if count > 1 then
 				local pos = addon.getQuestPosition(id, key)
-				pos.t = "GOTO"
-				addon.addMapIcon(pos, false, true)
-				text = text .. "\n-> " .. addon.COLOR_WHITE .. addon.getMapMarkerText(pos) .. 
-					"(" .. pos.x .. "," .. pos.y .. " " .. pos.zone .. ")|r\n"
+				if pos ~= nil then
+					pos.t = "GOTO"
+					pos.questId = id
+					pos.questType = key
+					addon.addMapIcon(pos, false, true)
+					text = text .. "\n-> " .. addon.COLOR_WHITE .. addon.getMapMarkerText(pos) .. 
+						"(" .. pos.x .. "," .. pos.y .. " " .. pos.zone .. ")|r\n"
+				end
 			end
 		end
 	end
@@ -90,10 +98,7 @@ local function setEditorMapIcons(guide)
 				text:SetMultiLine(true)
 				text:SetFontObject("GameFontNormal")
 				text:SetTextColor(1,1,1,1)
-				text:SetText(addon.COLOR_LIGHT_BLUE .. step.line .. "|r " .. element.x .. ", " .. element.y .. " |T" .. addon.icons.MAP_MARKER .. ":15:15:0:1:512:512:" .. 
-					element.mapIndex % 8 * 64 .. ":" .. (element.mapIndex % 8 + 1) * 64 .. ":" .. 
-					math.floor(element.mapIndex / 8) * 64 .. ":" .. (math.floor(element.mapIndex / 8) + 1) * 64 .. ":::|t")
-
+				text:SetText(addon.COLOR_LIGHT_BLUE .. step.line .. "|r " .. element.x .. ", " .. element.y .. " " .. addon.getMapMarkerText(element))
 				if prev == nil then
 					text:SetPoint("TOPLEFT", addon.editorFrame.gotoInfoContent, "TOPLEFT", 0, 0)
 				else
@@ -126,9 +131,9 @@ local function getElementByPos(pos, guide)
 end
 
 local function parseGuide(strict)
-	local guide = addon.parseGuide(addon.editorFrame.textBox:GetText(), nil, strict or false)
+	local guide = addon.parseGuide(addon.editorFrame.textBox:GetText():gsub("¦","|"), nil, strict or false)
 	local l = 0
-	local textWithLines = (addon.editorFrame.textBox:GetText() .. "\n"):gsub("([^\n\r]-)[\n\r]", function(t)
+	local textWithLines = (addon.editorFrame.textBox:GetText():gsub("[¦|]",",") .. "\n"):gsub("([^\n\r]-)[\n\r]", function(t)
 		l = l + 1 
 		return l .. "|c00000000" .. t:sub(#("" .. l) + 1) .. "|r\n"
 	end)
@@ -178,7 +183,7 @@ local function insertCode(typ, text, replace, firstElement, lastElement)
 			newText = oldText:sub(1, startPos - 1) .. newCode .. oldText:sub(startPos)
 		end
 	end
-	addon.editorFrame.textBox:SetText(newText)
+	addon.editorFrame.textBox:SetText(newText:gsub("|","¦"))
 	addon.editorFrame.textBox:HighlightText(startPos - 1, startPos + #newCode - 1)
 	addon.editorFrame.textBox:SetCursorPosition(startPos - 1)
 	parseGuide()
@@ -289,9 +294,9 @@ function addon.popupAppliesSetEnabledCheckboxes(popup, typ, guide)
 	if typ == "APPLIES" then
 		-- also respect restrictions from GUIDE_APPLIES
 		local faction = guide.faction
-		if faction == nil and guide.race ~= nil then faction = addon.races[guide.race[1]] end
-		if faction == nil and guide.class ~= nil then
-			for i, class in ipairs(guide.class) do
+		if faction == nil and guide.races ~= nil then faction = addon.races[guide.races[1]] end
+		if faction == nil and guide.classes ~= nil then
+			for i, class in ipairs(guide.classes) do
 				if addon.classesWithFaction[class] ~= nil then faction = addon.classesWithFaction[class] end
 			end
 		end
@@ -301,13 +306,13 @@ function addon.popupAppliesSetEnabledCheckboxes(popup, typ, guide)
 				box:SetEnabled(false)
 			elseif addon.isRace(key) and 
 				((faction ~= nil and faction ~= addon.races[key]) or 
-				(guide.race ~= nil and not addon.contains(guide.race, key)) or
-				(guide.race ~= nil and #guide.race == 1)) then
+				(guide.races ~= nil and not addon.contains(guide.races, key)) or
+				(guide.races ~= nil and #guide.races == 1)) then
 				box:SetEnabled(false)
 			elseif addon.isClass(key) and 
 				((faction ~= nil and addon.classesWithFaction[key] ~= nil and faction ~= addon.classesWithFaction[key]) or 
-				(guide.class ~= nil and not addon.contains(guide.class, key)) or
-				(guide.class ~= nil and #guide.class == 1)) then
+				(guide.classes ~= nil and not addon.contains(guide.classes, key)) or
+				(guide.classes ~= nil and #guide.classes == 1)) then
 				box:SetEnabled(false)
 			end
 		end
@@ -389,12 +394,12 @@ function addon.showEditPopupAPPLIES(typ, guide, selection)
 		popup.checkboxes[class] = addon.addCheckbox(popup, addon.getLocalizedClass(class))
 		popup.checkboxes[class]:SetPoint("TOPLEFT", 20, 5 - i * 25)
 		if typ == "GUIDE_APPLIES" then
-			if guide.class ~= nil and addon.contains(guide.class, class) then
+			if guide.classes ~= nil and addon.contains(guide.classes, class) then
 				popup.checkboxes[class]:SetChecked(true)
 				if addon.classesWithFaction[class] ~= nil then popup.checkboxes[addon.classesWithFaction[class]]:SetChecked(true) end
 			end
 		elseif typ == "APPLIES" then
-			if step ~= nil and step.class ~= nil and addon.contains(step.class, class) then
+			if step ~= nil and step.classes ~= nil and addon.contains(step.classes, class) then
 				popup.checkboxes[class]:SetChecked(true)
 				if addon.classesWithFaction[class] ~= nil then popup.checkboxes[addon.classesWithFaction[class]]:SetChecked(true) end
 			end
@@ -410,12 +415,12 @@ function addon.showEditPopupAPPLIES(typ, guide, selection)
 		if count[faction] == nil then count[faction] = 1 else count[faction] = count[faction] + 1 end
 		popup.checkboxes[race]:SetPoint("TOPLEFT", left[faction], -50 - count[faction] * 30)
 		if typ == "GUIDE_APPLIES" then
-			if guide.race ~= nil and addon.contains(guide.race, race) then 
+			if guide.races ~= nil and addon.contains(guide.races, race) then 
 				popup.checkboxes[race]:SetChecked(true)
 				popup.checkboxes[faction]:SetChecked(true)
 			end
 		elseif typ == "APPLIES" then
-			if step ~= nil and step.race ~= nil and addon.contains(step.race, race) then 
+			if step ~= nil and step.races ~= nil and addon.contains(step.races, race) then 
 				popup.checkboxes[race]:SetChecked(true)
 				popup.checkboxes[faction]:SetChecked(true)
 			end
@@ -793,7 +798,7 @@ function addon.showEditor()
 		
 		addon.editorFrame.textBox = CreateFrame("EditBox", nil, content)
 		if GuidelimeDataChar.currentGuide ~= nil and addon.guides[GuidelimeDataChar.currentGuide] ~= nil then
-			addon.editorFrame.textBox:SetText(addon.guides[GuidelimeDataChar.currentGuide].text)
+			addon.editorFrame.textBox:SetText(addon.guides[GuidelimeDataChar.currentGuide].text:gsub("|","¦"))
 		end
 		addon.editorFrame.textBox:SetMultiLine(true)
 		addon.editorFrame.textBox:SetFontObject("ChatFontNormal")
@@ -802,8 +807,10 @@ function addon.showEditor()
 		addon.editorFrame.textBox:SetWidth(addon.editorFrame:GetWidth() - 390)
 		addon.editorFrame.textBox:SetScript("OnMouseUp", function(self, button)
 			if not addon.editorFrame.textBox:IsEnabled() then return end
+			local lastSelectionPos
+			if addon.editorFrame.selection ~= nil then lastSelectionPos = addon.editorFrame.selection.startPos end
 			local guide = parseGuide()
-			if guide ~= nil and addon.editorFrame.selection ~= nil and addon.isDoubleClick(self) then
+			if guide ~= nil and addon.editorFrame.selection ~= nil and addon.isDoubleClick(self) and lastSelectionPos == addon.editorFrame.selection.startPos then
 				local showPopup = addon["showEditPopup" .. addon.getSuperCode(addon.editorFrame.selection.t)]
 				if showPopup ~= nil then
 					showPopup(addon.editorFrame.selection.t, guide, addon.editorFrame.selection)
@@ -818,6 +825,14 @@ function addon.showEditor()
 				else
 					addon.editorFrame.textBox:HighlightText(addon.editorFrame.selection.startPos - 1, addon.editorFrame.selection.endPos)
 				end
+			end
+		end)
+		addon.editorFrame:SetScript("OnKeyDown", nil)
+		addon.editorFrame.textBox:SetScript("OnKeyDown", function(self,key) 
+			if key == "ESCAPE" then
+				addon.editorFrame:Hide()
+			elseif key == "ENTER" or key == "UP" or key == "DOWN" or key == "LEFT" or key == "RIGHT" then
+				C_Timer.After(0.01, parseGuide)
 			end
 		end)
 
@@ -861,15 +876,6 @@ function addon.showEditor()
 	    addon.editorFrame.gotoInfoContent = CreateFrame("Frame", nil, addon.editorFrame.gotoInfoScrollFrame) 
 	    addon.editorFrame.gotoInfoContent:SetSize(1, 1) 
 	    addon.editorFrame.gotoInfoScrollFrame:SetScrollChild(addon.editorFrame.gotoInfoContent)
-
-		addon.editorFrame:SetScript("OnKeyDown", nil)
-		addon.editorFrame.textBox:SetScript("OnKeyDown", function(self,key) 
-			if key == "ESCAPE" then
-				addon.editorFrame:Hide()
-			elseif key == "ENTER" or key == "]" then
-				C_Timer.After(0.01, parseGuide)
-			end
-		end)
 
 		addon.editorFrame.mapBtn = CreateFrame("BUTTON", nil, addon.editorFrame, "UIPanelButtonTemplate")
 		addon.editorFrame.mapBtn:SetWidth(160)
@@ -923,7 +929,7 @@ function addon.showEditor()
 		addon.editorFrame.discardBtn:SetPoint("BOTTOMLEFT", addon.editorFrame, "BOTTOMLEFT", 380, 20)
 		addon.editorFrame.discardBtn:SetScript("OnClick", function()
 			if GuidelimeDataChar.currentGuide ~= nil and addon.guides[GuidelimeDataChar.currentGuide] ~= nil then
-				addon.editorFrame.textBox:SetText(addon.guides[GuidelimeDataChar.currentGuide].text)
+				addon.editorFrame.textBox:SetText(addon.guides[GuidelimeDataChar.currentGuide].text:gsub("|","¦"))
 			else
 				addon.editorFrame.textBox:SetText("")
 			end
@@ -941,7 +947,7 @@ function addon.showEditor()
 			if guide ~= nil then 
 				local text, count = addon.addQuestCoordinates(guide)
 				if count > 0 then
-					addon.editorFrame.textBox:SetText(text)
+					addon.editorFrame.textBox:SetText(text:gsub("|","¦"))
 					parseGuide()
 				end
 				C_Timer.After(0.2, function()
@@ -962,7 +968,7 @@ function addon.showEditor()
 				if guide ~= nil then 
 					local text, count = addon.removeAllCoordinates(guide)
 					if count > 0 then
-						addon.editorFrame.textBox:SetText(text)
+						addon.editorFrame.textBox:SetText(text:gsub("|","¦"))
 						parseGuide()
 					end
 					C_Timer.After(0.2, function()
@@ -980,7 +986,7 @@ function addon.showEditor()
 		addon.editorFrame.importBtn:SetScript("OnClick", function()
 			addon.createPopupFrame(L.IMPORT_GUIDE_MESSAGE, function()
 				local text = addon.importPlainText(addon.editorFrame.textBox:GetText())
-				addon.editorFrame.textBox:SetText(text)
+				addon.editorFrame.textBox:SetText(text:gsub("|","¦"))
 				parseGuide()
 			end, true):Show()
 		end)

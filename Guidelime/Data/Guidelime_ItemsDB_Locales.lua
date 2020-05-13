@@ -1,6 +1,6 @@
 local addonName, addon = ...
 
--- source: https://github.com/TyrsDev/WoW-Classic-Quests
+-- source: https://github.com/TyrsDev/WoW-Classic-Database
 -- Thanks to TyrsDev!
 
 local locale = GetLocale()
@@ -2617,7 +2617,7 @@ if locale == "esES" then
 		[9741] = "Gema de Serpentis",
 	}
 end
-if locale == "zhCN" then
+if locale == "zhCN" or locale == "zhTW" then
 	addon.itemsDB_zhCN = {
 		[20490] = "铁炉堡薄荷糖",
 		[16715] = "野性之心长靴",

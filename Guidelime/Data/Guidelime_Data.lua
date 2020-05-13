@@ -6,6 +6,16 @@ addon.races = {Human = "Alliance", NightElf = "Alliance", Dwarf = "Alliance", Gn
 addon.raceIDs = {Human = 1, NightElf = 4, Dwarf = 3, Gnome = 7, Orc = 2, Troll = 8, Tauren = 6, Undead = 5}
 addon.classes = {"Warrior", "Rogue", "Mage", "Warlock", "Hunter", "Priest", "Druid", "Paladin", "Shaman"}
 addon.classesWithFaction = {Paladin = "Alliance", Shaman = "Horde"}
+addon.classesPerRace = {
+	Human = {"Warrior", "Paladin", "Rogue", "Priest", "Mage", "Warlock"},
+	NightElf = {"Warrior", "Hunter", "Rogue", "Priest", "Druid"},
+	Dwarf = {"Warrior", "Paladin", "Hunter", "Rogue", "Priest"},
+	Gnome = {"Warrior", "Rogue", "Mage", "Warlock"},
+	Orc = {"Warrior", "Hunter", "Rogue", "Shaman", "Warlock"},
+	Troll = {"Warrior", "Hunter", "Rogue", "Priest", "Shaman", "Mage"},
+	Tauren = {"Warrior", "Hunter", "Shaman", "Druid"},
+	Undead = {"Warrior", "Rogue", "Priest", "Mage", "Warlock"}
+}
 
 addon.racesPerFaction = {}
 for race, faction in pairs(addon.races) do
@@ -34,7 +44,7 @@ function addon.isClass(class)
 end
 function addon.getRace(race)
 	race = race:upper():gsub(" ","")
-	if race == "SCOURCE" then return "Undead" end
+	if race == "SCOURGE" then return "Undead" end
 	for r, f in pairs(addon.races) do
 		if r:upper() == race then return r end
 	end
@@ -52,6 +62,7 @@ function addon.isFaction(faction)
 	return addon.getFaction(faction) ~= nil
 end
 function addon.getLocalizedRace(race)
+	if C_CreatureInfo == nil then return race end
 	return C_CreatureInfo.GetRaceInfo(addon.raceIDs[race]).raceName
 end
 function addon.getLocalizedClass(class)
@@ -82,4 +93,17 @@ function addon.containsKey(table, value)
 		end
 	end
 	return false
+end
+
+function addon.applies(guide)
+	if guide == nil then return false end
+	local applies = true
+	if guide.races ~= nil then
+		if not addon.contains(guide.races, addon.race) then applies = false end
+	end
+	if guide.classes ~= nil then
+		if not addon.contains(guide.classes, addon.class) then applies = false end
+	end
+	if guide.faction ~= nil and guide.faction ~= addon.faction then applies = false end
+	return applies
 end

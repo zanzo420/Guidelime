@@ -1,6 +1,6 @@
 local addonName, addon = ...
 
--- source: https://github.com/TyrsDev/WoW-Classic-Quests
+-- source: https://github.com/TyrsDev/WoW-Classic-Database
 -- Thanks to TyrsDev!
 
 local locale = GetLocale()
@@ -7608,7 +7608,7 @@ if locale == "esES" then
 		[16781] = "Celebrador del Solsticio de Verano",
 	}
 end
-if locale == "zhCN" then
+if locale == "zhCN" or locale == "zhTW" then
 	addon.creaturesDB_zhCN = {
 		[15475] = "甲壳虫",
 		[15539] = "佐格将军",
